@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+	<bean class="net.yeeyaa.eight.core.PlatformUniversal" id="taskHolder" scope="prototype">
+		<property name="beanHolder" ref="beanHolder"/>
+		<property name="bean" ref="taskFactory"/>
+	</bean>
+
+	<bean class="net.yeeyaa.eight.core.processor.CallbackProcessor" id="taskCallback"> 
+		<property name="processor" ref="beanHolder"/>
+		<property name="paras" value="taskHolder"/>
+	</bean>			
+	
+	<bean factory-bean="taskCallback" factory-method="getValue" id="taskFactory" scope="prototype"/>	       
+</beans>

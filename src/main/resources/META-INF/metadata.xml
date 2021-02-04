@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ipojo xmlns:jmx="org.apache.felix.ipojo.handlers.jmx">
+	<component classname="net.yeeyaa.eight.osgi.runtime.BundleCenter" name="perception.schema">
+		<controller field="state"/>
+		<callback transition="validate" method="validate" />
+		<callback transition="invalidate" method="invalidate" />
+		<requires id="executor" optional="true" nullable="false">
+		     <callback type="bind" method="bindExecutor"/>
+		     <callback type="unbind" method="unbindExecutor"/>
+		</requires>	
+		<requires id="proxy" aggregate="true" optional="true">
+		     <callback type="bind" method="bindProxy"/>
+		     <callback type="unbind" method="unbindProxy"/>
+		</requires>		
+		<properties updated="updated" propagation="false">
+			<property name="wait" method="setWait"/>
+			<property name="config" method="setConfig"/>
+			<property name="permit" method="setPermit"/>
+			<property name="path" method="setPath" value="OSGI-INF/blueprint"/>
+			<property name="pattern" method="setPattern" value="*Context.xml"/>
+			<property name="recurse" method="setRecurse" value="false"/>
+			<property name="trace" method="setTrace"/>
+			<property name="clone" method="setClone"/>				
+			<property name="mode" method="setMode"/>
+			<property name="thread" method="setThread"/>
+			<property name="reload" method="setReload"/>					
+			<property name="resource" method="setResource"/>						
+			<property name="holder" method="setHolder"/>
+			<property name="log" method="setLog"/>		
+			<property name="logger" method="setLogger"/>	
+			<property name="context" method="setContext"/>
+			<property name="begin" method="setBegin" value="begin"/>
+			<property name="close" method="setClose" value="close"/>						
+			<property name="readonly" method="setReadonly"/>
+			<property name="hookid" method="setHookid"/>	
+			<property name="key" method="setKey" value="service.description"/>																
+		</properties>
+		<provides specifications="net.yeeyaa.eight.osgi.IBundleService"  post-unregistration="unregistered" post-registration="registered">
+		    <property name="service.description" type="string" value="perception.schema"/>
+		</provides>	
+		<jmx:config>
+		    <jmx:method name="setConfig"/>
+		    <jmx:method name="setPermit"/>
+		    <jmx:method name="setLogger"/>
+		    <jmx:method name="setTrace"/>
+		    <jmx:method name="setClone"/>		    
+		    <jmx:method name="control"/>	
+		    <jmx:method name="trace"/>		
+		    <jmx:method name="state"/>			        		    
+		    <jmx:method name="debug"/>	
+		    <jmx:method name="info"/>		    		    
+    	</jmx:config>
+	</component>		
+</ipojo>

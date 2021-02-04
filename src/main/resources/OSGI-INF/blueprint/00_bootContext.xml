@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:context="http://www.springframework.org/schema/context" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+	<context:annotation-config/>
+	<context:mbean-export/> 
+	
+	<bean class="net.yeeyaa.eight.common.spring.PlatformBean" id="platformBean">
+        <constructor-arg ref="log"/>
+    </bean>
+	
+	<bean class="net.yeeyaa.eight.common.spring.PlatformBean$Close" id="close">
+		<constructor-arg ref="platformBean"/>
+	</bean>
+	
+	<bean class="net.yeeyaa.eight.core.PlatformLogger" id="log">
+		<property name="resource"> 
+			<bean class="net.yeeyaa.eight.osgi.runtime.BundleCentertHolder$InfoResource">
+		        <constructor-arg ref="centerHolder"/>
+		    </bean>	
+	   </property> 
+    </bean>	
+	
+	<bean class="net.yeeyaa.eight.common.storage.MockStorage" id="mockStorageTemplate" scope="prototype">
+		<property name="resource" ref="mockStorageResource"/>
+	</bean>
+
+	<bean class="net.yeeyaa.eight.core.processor.CallbackProcessor" name="mockStorage">
+	    <property name="processor" ref="beanHolder"/>
+	    <property name="paras" value="mockStorageTemplate"/>
+	</bean>
+	
+	<bean factory-bean="mockStorage" factory-method="getValue" name="mockStorageResource" scope="prototype"/>
+
+	<bean class="net.yeeyaa.eight.common.storage.MockResource" id="mockResourceTemplate" scope="prototype">
+		<property name="storage" ref="mockResourceStorage"/>
+	</bean>
+
+	<bean class="net.yeeyaa.eight.core.processor.CallbackProcessor" name="mockResource">
+	    <property name="processor" ref="beanHolder"/>
+	    <property name="paras" value="mockResourceTemplate"/>
+	</bean>
+	
+	<bean factory-bean="mockResource" factory-method="getValue" name="mockResourceStorage" scope="prototype"/>
+	
+	<bean class="net.yeeyaa.eight.common.spring.PlatformBean$GetBean" id="beanHolder"> 
+		<constructor-arg ref="platformBean"/>     
+	</bean>
+	
+	<bean class="net.yeeyaa.eight.osgi.runtime.BundleClassLoader" id="superClassLoader"> 
+		<property name="context" ref="context"/>
+	</bean>
+	
+	<bean class="net.yeeyaa.eight.common.aop.ByteClassProcessor" id="classLoader"> 
+		<constructor-arg>
+			<bean class="net.yeeyaa.eight.core.processor.ClassAppendProcessor"> 
+				<constructor-arg ref="superClassLoader"/>
+				<property name="realnameProcessor">
+					<bean class="net.yeeyaa.eight.core.processor.ClassAppendProcessor$DefaultNameProcessor"/>  
+				</property>
+				<property name="ignore" value="([\w.$]+)(BeanInfo|Customizer)"/>
+				<property name="classProcessor">
+					<bean class="net.yeeyaa.eight.common.aop.SubClassProcessor"/>
+				</property>	
+			</bean>	
+		</constructor-arg>	
+		<constructor-arg ref="log"/>
+        <property name="beanHolder">
+			<bean class="net.yeeyaa.eight.share.client.MergeClient">
+		        <property name="service" ref="beanHolder"/>
+		        <property name="select" value="false"/>
+		    </bean>			
+		</property>	
+	</bean>
+	
+	<bean class="net.yeeyaa.eight.osgi.runtime.BundleCentertHolder" id="centerHolder">
+        <constructor-arg ref="context"/>
+    </bean>	
+    
+	<bean class="net.yeeyaa.eight.osgi.runtime.BundleCentertHolder$Invoker" id="invoker">
+        <constructor-arg ref="centerHolder"/>
+    </bean>	
+    
+    <bean class="net.yeeyaa.eight.common.spring.PropertiesFactory" id="properties">
+        <property name="resource">
+        	<bean class="net.yeeyaa.eight.osgi.runtime.BundleCentertHolder$ConfigResource">
+        		<constructor-arg ref="centerHolder"/>
+    		</bean>	
+        </property>
+    </bean>	
+       		
+	<bean class="net.yeeyaa.eight.core.processor.ChainXProcessor" id="begin"> 
+		<constructor-arg ref="log"/>
+		<property name="processors"> 
+		   <list>
+				<bean class="net.yeeyaa.eight.core.storage.WatchGroup"> 
+					<constructor-arg ref="log"/>
+                    <property name="mode" value="0"/>
+	    			<property name="resource">
+    					<bean class="net.yeeyaa.eight.osgi.runtime.BundleClassLoader$BundleResource">
+    						<constructor-arg ref="superClassLoader"/>
+        					<property name="mockStorage" ref="mockStorage"/>    	
+   							<property name="base" value="META-INF/spring/"/>    	
+   							<property name="filePattern" value="*Context.xml"/>
+   							<property name="dir" value="false"/>
+   						</bean>
+			   		</property>    
+				</bean>
+			   <bean class="net.yeeyaa.eight.core.processor.CollectionXProcessor"> 
+			   		<constructor-arg ref="log"/>
+                    <property name="processor" ref="mockResource"/>
+			   </bean> 
+			   <bean class="net.yeeyaa.eight.common.spring.PlatformContexLoader">
+			   		<property name="classLoader" ref="classLoader"/>
+			   		<property name="platformBean" ref="platformBean"/>
+			   		<property name ="resourceLoader">
+		   			   	<bean class ="net.yeeyaa.eight.osgi.spring.BundleResourcePatternResolver"> 
+		   			    	<constructor-arg ref= "classLoader"/>
+		   			    	<property name ="context" ref="context"/>
+						</bean>	
+			   		</property>
+			   		<property name="readerCreator">
+			   			<bean class="net.yeeyaa.eight.common.spring.ContextReaderProcessor"/>
+			   		</property>
+			   </bean> 
+		   </list>
+	   </property> 
+	</bean>		       
+</beans>

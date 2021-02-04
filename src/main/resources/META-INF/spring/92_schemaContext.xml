@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<beans xmlns="http://www.springframework.org/schema/beans" 
+	   xmlns:aop="http://www.springframework.org/schema/aop" 
+	   xmlns:context="http://www.springframework.org/schema/context" 
+	   xmlns:tx="http://www.springframework.org/schema/tx" 
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans                      
+	   http://www.springframework.org/schema/beans/spring-beans.xsd                      
+	   http://www.springframework.org/schema/tx                      
+	   http://www.springframework.org/schema/tx/spring-tx.xsd                      
+	   http://www.springframework.org/schema/aop                      
+	   http://www.springframework.org/schema/aop/spring-aop.xsd                      
+	   http://www.springframework.org/schema/context                      
+	   http://www.springframework.org/schema/context/spring-context.xsd "> 
+	<context:property-placeholder properties-ref="properties"/>
+	<context:annotation-config/>
+	<context:mbean-export/>
+	<aop:aspectj-autoproxy proxy-target-class="true"/>
+	<!--<constructor-arg value="#{${framework.perception.search.log:null}}"/> -->
+	<bean class="net.yeeyaa.perception.search.calcite.schema.MetaService" id="metaService">
+		<property name="service">
+			<bean class="net.yeeyaa.eight.data.processor.TemplateProcessor">
+				<property name="template">
+				    <bean class="org.springframework.jdbc.core.JdbcTemplate">
+				        <constructor-arg ref="meta"/>
+				    </bean>
+				</property>
+				<property name="sql" value="${framework.perception.schema.meta.sql:findPCTA~select * from perception_schema where pid = ? and code=? and type = ? and addition in (-1,?)~~findPT~select * from perception_schema where pid=? and type =?~~findPTA~select * from perception_schema where pid=? and type =? and addition in (-1,?)~~findPCT~select * from perception_schema where pid = ? and code=? and type = ?~~find~select * from perception_schema where id = ?~~save~insert into perception_schema (pid, code, type, addition, data, id) values(?, ?, ?, ?, ?, ?)~~update~update perception_schema set pid = ?, code = ?, type = ?, addition = ?, data = ? where id = ?~~deletePCTA~delete from perception_schema where pid = ? and code = ? and type = ? and addition = ?~~deletePT~delete from perception_schema where pid = ? and type = ?~~delete~delete from perception_schema where id = ?~~list~select cast(addition as integer) as id from perception_schema where type ='Table' and code = ? and addition != '-1'~~all~select * from perception_schema~~clean~delete from perception_schema}"/>
+			</bean>
+		</property>
+	</bean>
+	
+	 <tx:advice id="metaAdvice" transaction-manager="metaManager">
+	     <tx:attributes>
+	     	 <tx:method name="list*" propagation="REQUIRED" read-only="true"/>
+	         <tx:method name="get*" propagation="REQUIRED" read-only="true"/>  
+	         <tx:method name="*" propagation="REQUIRED" rollback-for="Exception"/>
+	     </tx:attributes>
+	 </tx:advice>
+	
+	 <aop:config>
+	     <aop:pointcut expression="bean(metaService) and execution(* *(..))" id="metaTarget"/>
+	     <aop:advisor advice-ref="metaAdvice" pointcut-ref="metaTarget"/>
+	 </aop:config>
+
+    <bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" id="metaManager">
+        <property name="dataSource" ref="meta" />
+    </bean>	
+    
+	 <bean class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close" id="meta" depends-on="protocol">
+ 		<property name="driverClassLoader" ref="classLoader"/>
+        <property name="driverClassName" value="${framework.perception.schema.meta.driver:#{null}}"/>
+        <property name="url" value="${framework.perception.schema.meta.url:#{null}}"/>
+        <property name="username" value="${framework.perception.schema.meta.user:#{null}}"/>
+        <property name="password" value="${framework.perception.schema.meta.password:#{null}}"/>
+        <property name="testWhileIdle" value="${framework.perception.schema.meta.testWhileIdle:true}"/>
+        <property name="initialSize" value="${framework.perception.schema.meta.initialSize:30}"/>
+        <property name="maxActive" value="${framework.perception.schema.meta.maxActive:200}"/>
+		<property name="maxIdle" value="${framework.perception.schema.meta.maxIdle:50}"/>  
+		<property name="minIdle" value="${framework.perception.schema.meta.minIdle:10}"/>  
+		<!-- <property name="validationQuery" value="select getdate()" />  -->
+		<property name="removeAbandonedTimeout" value="${framework.perception.schema.meta.removeAbandonedTimeout:120}"/>  
+		<property name="removeAbandoned" value="${framework.perception.schema.meta.removeAbandoned:true}"/>  
+		<property name="timeBetweenEvictionRunsMillis" value="${framework.perception.schema.meta.timeBetweenEvictionRunsMillis:3600000}"/>  
+		<property name="minEvictableIdleTimeMillis" value="${framework.perception.schema.meta.minEvictableIdleTimeMillis:3600000}"/> 
+	</bean>
+
+	<bean class="net.yeeyaa.perception.search.calcite.schema.InfoService" id="infoService">
+		<property name="service">
+			<bean class="net.yeeyaa.eight.data.processor.TemplateProcessor">
+				<property name="template">
+				    <bean class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
+				        <constructor-arg ref="info"/>
+				    </bean>
+				</property>
+				<property name="sql" value="${framework.perception.schema.info.sql:account~select name, rel_table_column as col, remark from user_attribute where app_id = :id~~event~select name, rel_table_column as col, remark from event_attribute where app_id = :id~~list~select id, name from app where status = 1~~new~select id, name from app where status = 1 and id not in (:ids)}"/>
+			</bean>
+		</property>
+	</bean>
+
+	 <tx:advice id="infoAdvice" transaction-manager="infoManager">
+	     <tx:attributes>
+	         <tx:method name="*" propagation="REQUIRED" read-only="true"/>  
+	     </tx:attributes>
+	 </tx:advice>
+	
+	 <aop:config>
+	     <aop:pointcut expression="bean(infoService) and execution(* *(..))" id="infoTarget"/>
+	     <aop:advisor advice-ref="metaAdvice" pointcut-ref="infoTarget"/>
+	 </aop:config>
+
+    <bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" id="infoManager">
+        <property name="dataSource" ref="info" />
+    </bean>	
+    
+	 <bean class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close" id="info" depends-on="protocol">
+ 		<property name="driverClassLoader" ref="classLoader"/>
+        <property name="driverClassName" value="${framework.perception.schema.info.driver:#{null}}"/>
+        <property name="url" value="${framework.perception.schema.info.url:#{null}}"/>
+        <property name="username" value="${framework.perception.schema.info.user:#{null}}"/>
+        <property name="password" value="${framework.perception.schema.info.password:#{null}}"/>
+        <property name="testWhileIdle" value="${framework.perception.schema.info.testWhileIdle:true}"/>
+        <property name="initialSize" value="${framework.perception.schema.info.initialSize:30}"/>
+        <property name="maxActive" value="${framework.perception.schema.info.maxActive:200}"/>
+		<property name="maxIdle" value="${framework.perception.schema.info.maxIdle:50}"/>  
+		<property name="minIdle" value="${framework.perception.schema.info.minIdle:10}"/>  
+		<!-- <property name="validationQuery" value="select getdate()" />  -->
+		<property name="removeAbandonedTimeout" value="${framework.perception.schema.info.removeAbandonedTimeout:120}"/>  
+		<property name="removeAbandoned" value="${framework.perception.schema.info.removeAbandoned:true}"/>  
+		<property name="timeBetweenEvictionRunsMillis" value="${framework.perception.schema.info.timeBetweenEvictionRunsMillis:3600000}"/>  
+		<property name="minEvictableIdleTimeMillis" value="${framework.perception.schema.info.minEvictableIdleTimeMillis:3600000}"/> 
+	</bean>
+	
+	<bean class="net.yeeyaa.perception.search.calcite.schema.SchemaHolder" id="schema">
+		<constructor-arg ref="log"/>
+		<property name="config" value="${framework.perception.schema.config:#{null}}"/>
+		<property name="generator">
+			<bean class="net.yeeyaa.perception.search.calcite.schema.Generator">
+				<constructor-arg ref="log"/>
+				<property name="meta" ref="metaService"/>
+				<property name="info" ref="infoService"/>
+				<property name="config" value="${framework.perception.schema.generator.config:#{null}}"/>
+			</bean>
+		</property>
+		<property name="factory">
+			<bean class="net.yeeyaa.eight.core.processor.InputProcessor">
+				<property name="resource">
+					<bean class="net.yeeyaa.eight.core.resource.MemoryLResource">
+						<property name="resource">
+							<map>
+								<entry key="search">
+									<bean class="net.yeeyaa.perception.search.calcite.schema.handler.SearchHandler">
+										<constructor-arg ref="log"/>
+									</bean>
+								</entry>
+							</map>
+						</property>
+					</bean>
+				</property>
+			</bean>
+		</property>
+	</bean>
+	
+	<bean class="net.yeeyaa.eight.core.task.PlatformTask" id="task" init-method="reload">
+		<constructor-arg ref="log"/>
+        <property name="beanHolder" ref="taskCallback"/>
+		<property name="tasks">
+			<list>
+				<bean class="net.yeeyaa.eight.core.task.TaskEntity">
+					<property name="name" value="schema"/>
+					<property name="bean" ref="schema"/>
+					<property name="ignore" value="true"/>
+					<property name="type" value="1"/>
+					<property name="begin" value="0"/>
+					<property name="parameter" value="#{'${framework.perception.schema.task.parameter:}'.length() == 0 ? null : ${framework.perception.schema.task.parameter:null}}"/>
+					<property name="span">
+						<bean class="net.yeeyaa.eight.core.util.Interval">
+							<constructor-arg value="${framework.perception.schema.task.span:0 min}"/>
+						</bean>
+					</property>
+				</bean>
+			</list>
+		</property>
+	</bean>
+	
+	<bean class="net.yeeyaa.eight.osgi.runtime.BundleProtocol" id="protocol">
+		<property name="context" ref="context"/>
+		<property name="special" value="true"/>
+		<property name="region" value="${framework.perception.schema.protocol.region:perception.schema}"/>
+	</bean>
+</beans>
