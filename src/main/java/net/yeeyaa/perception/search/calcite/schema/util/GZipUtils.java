@@ -10,6 +10,7 @@ import java.util.zip.GZIPOutputStream;
 import net.yeeyaa.eight.IBiProcessor;
 import net.yeeyaa.eight.IProcessor;
 import net.yeeyaa.eight.PlatformException;
+import net.yeeyaa.eight.core.util.TypeConvertor;
 import net.yeeyaa.perception.search.calcite.schema.SchemaError;
 
 import org.apache.commons.codec.binary.Base64;
@@ -55,7 +56,7 @@ public class GZipUtils implements IProcessor<Object, Object>, IBiProcessor<Objec
             GZIPInputStream gzip = null;
             try {
                 out = new ByteArrayOutputStream();
-                in = new ByteArrayInputStream(Base64.decodeBase64(compressedBytes));
+                in = new ByteArrayInputStream(compressedBytes);
                 gzip = new GZIPInputStream(in);
                 byte[] buffer = new byte[256];
                 int n;
@@ -92,5 +93,16 @@ public class GZipUtils implements IProcessor<Object, Object>, IBiProcessor<Objec
 	@Override
 	public Object process(Object object) {
 		return perform(object, compress);
+	}
+	
+	public static void main(String[] args) {
+		if (args != null && args.length > 0) try {
+			String content = new String(TypeConvertor.urlToBytes(TypeConvertor.strToUrl(args[0]), 8196, -1L), "UTF-8");
+			content = content.startsWith("[") || content.startsWith("{") ? compress(content) : decompress(content);
+			if (args.length > 1) TypeConvertor.bytesToFile(content.getBytes("UTF-8"), args[1]);
+			else System.out.println(content);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 }
