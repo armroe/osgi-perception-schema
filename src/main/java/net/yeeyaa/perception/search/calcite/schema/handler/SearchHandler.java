@@ -35,6 +35,7 @@ public class SearchHandler implements ITriProcessor<Object, IBiProcessor<String,
 	{
 		tableMeta.put(Constants.Name, Type.STRING.value());
 		tableMeta.put(Constants.Remark, Type.STRING.value());
+		tableMeta.put(Constants.Ref, Type.STRING.value());
 		columnMeta.put(Constants.Name, Type.STRING.value());
 		columnMeta.put(Constants.Remark, Type.STRING.value());
 		columnMeta.put(Constants.Flag, Type.STRING.value());
@@ -88,7 +89,7 @@ public class SearchHandler implements ITriProcessor<Object, IBiProcessor<String,
 
 			protected List<Map<String, Object>> meta(Object key, IBiProcessor<String, Object[], Object> holder, Object[] params) {
 				Cache<Object, List<Map<String, Object>>> cache = (Cache<Object, List<Map<String, Object>>>) holder.perform("getCache", new Object[] {name, serviceid});
-				List<Map<String, Object>> value = cache.getIfPresent(params == null || params.length == 0 || params[0] == null ? "search.meta." + id : "search.meta." + id + "." + params[0]);
+				List<Map<String, Object>> value = cache.getIfPresent(params == null || params.length == 0 || params[0] == null ? "search.meta." + dataset + "." + id : "search.meta." + dataset + "." + id + "." + params[0]);
 				if (value == null) try {
 					value = new LinkedList<Map<String, Object>>();
 					List<Node[]> tables = (List<Node[]>) holder.perform("get", new Object[]{Category.DATASET.value() + "*" + dataset, Category.DATASET.value() + "*" + dataset + "*" + id});
@@ -100,15 +101,15 @@ public class SearchHandler implements ITriProcessor<Object, IBiProcessor<String,
 								Map<String, Object> config = t.getConfig();
 								if (config != null) {
 									if (config.get(Constants.Remark) != null) map.put(Constants.Remark, config.get(Constants.Remark));
-									if (config.get(Constants.Ref) != null) if (config.get(Constants.Ref).toString().indexOf('*') > -1) map.put(Constants.Remark, config.get(Constants.Ref));
-									else map.put(Constants.Remark, config.get(Constants.Ref) + "*" + t.getName());
+									if (config.get(Constants.Ref) != null) if (config.get(Constants.Ref).toString().indexOf('*') > -1) map.put(Constants.Ref, config.get(Constants.Ref));
+									else map.put(Constants.Ref, config.get(Constants.Ref) + "*" + t.getName());
 								}
 								value.add(map);
 							}
-							cache.put("search.meta." + id, value);
+							cache.put("search.meta." + dataset + "." + id, value);
 						}
 					} else if (tables != null) {
-							for (Node[] ts : tables) for (Node t : ts) if (params[0].equals(t.getName()) && t.getSub() != null) for (Node col : t.getSub()) {
+						for (Node[] ts : tables) for (Node t : ts) if (params[0].equals(t.getName()) && t.getSub() != null) for (Node col : t.getSub()) {
 							Map<String, Object> map = new ConcurrentHashMap<String, Object>();
 							map.put(Constants.Name, col.getName());
 							Map<String, Object> config = t.getConfig();
@@ -118,7 +119,7 @@ public class SearchHandler implements ITriProcessor<Object, IBiProcessor<String,
 							map.put(Constants.Type, getType(type.toString()).value());
 							value.add(map);
 						}
-						cache.put("search.meta." + id + "." + params[0], value);
+						cache.put("search.meta." + dataset + "." + id + "." + params[0], value);
 					}
 				} catch (Exception e) {
                 	log.error("search meta fail.", e);
@@ -128,7 +129,7 @@ public class SearchHandler implements ITriProcessor<Object, IBiProcessor<String,
 			
 			protected HashMap<String, Object> schema(Object key, IBiProcessor<String, Object[], Object> holder, Object[] params) {
 				Cache<String, Object> cache = (Cache<String, Object>) holder.perform("getCache", new Object[] {name, serviceid});
-				Object value = cache.asMap().get("search.schema." + id);
+				Object value = cache.asMap().get("search.schema." + dataset);
 				if (value == null) try {
 	            	List<Node[]> ss = (List<Node[]>) holder.perform("get", new Object[]{Constants.Root, Category.DATASET.value() + "*" + dataset});
 	                if (ss != null && ss.size() > 1)  {
@@ -178,7 +179,6 @@ public class SearchHandler implements ITriProcessor<Object, IBiProcessor<String,
 		                        	isExistsClone = true;
 		                        	break;
 		                        default: schemaNode.put("factory", "net.yeeyaa.perception.search.calcite.Factory");
-		                            operandNode.put("id", id);
 		                            operandNode.put("dataset", dataset);
 		                            isExistsMain = true;
 	                        }
@@ -194,7 +194,7 @@ public class SearchHandler implements ITriProcessor<Object, IBiProcessor<String,
 	                    else if (isExistsClone) jsonObject.put("defaultSchema", Schema.CLONE.name());
 	                    jsonObject.set("schemas", schemaJSONArray);
 	                    value = "inline:" + om.writeValueAsString(jsonObject);
-	                    cache.put("search.schema." + id, value);
+	                    cache.put("search.schema." + dataset, value);
 	                }
 				} catch (Exception e) {
                 	log.error("search schema fail.", e);

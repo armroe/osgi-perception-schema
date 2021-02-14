@@ -244,15 +244,15 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 			}
 		} else if (type == null) flag.store(content, Constants.Alter);
 		else if (type instanceof String) flag.store(content, type.toString());
-		if (type instanceof Number) {
+		else if (type instanceof Number) {
 			flag.store(content, Constants.Alter);
 			if (executor == null) process(null);
 			else executor.execute(new Runner(null));
-		} if (type instanceof Collection) {
+		} else if (type instanceof Collection) {
 			flag.store(content, Constants.Alter);
 			if (executor == null) process(false);
 			else executor.execute(new Runner(false));
-		} if (!(type instanceof Boolean)) {
+		} else if (!(type instanceof Boolean)) {
 			flag.store(content, Constants.Alter);
 			if (executor == null) process(true);
 			else executor.execute(new Runner(true));
