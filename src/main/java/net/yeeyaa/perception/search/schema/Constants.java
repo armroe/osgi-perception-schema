@@ -1,4 +1,8 @@
-package net.yeeyaa.perception.search.calcite.schema;
+package net.yeeyaa.perception.search.schema;
+
+import java.lang.reflect.Method;
+
+import net.yeeyaa.eight.IProcessor;
 
 
 public final class Constants {
@@ -17,6 +21,16 @@ public final class Constants {
     public static String Config = "perception.search.calcite.schema.config";
     public static String Root = "root";
     public static String Empty = "-1";
+    public static final Method method;
+    static {
+        Method m;
+        try {
+            m = IProcessor.class.getMethod("process", Object.class);
+        } catch (Exception e) {
+            m = null;
+        }
+        method = m;
+    }
     
 	public void setName(String name) {
 		Name = name;

@@ -14,7 +14,7 @@
   <url>http://maven.apache.org</url>
 
   <properties>
-	<obfuscator.skip>false</obfuscator.skip>
+	<obfuscator.skip>true</obfuscator.skip>
   </properties>
 
   <dependencies> 
@@ -39,9 +39,11 @@
 		<version>3.2</version>
     </dependency> 
     <dependency>
-		<groupId>commons-codec</groupId>
-		<artifactId>commons-codec</artifactId>
-		<version>1.9</version>
+    	<groupId>org.springframework</groupId>
+    	<artifactId>spring-core</artifactId>
+    	<scope>provided</scope>     	
+	    <optional>true</optional>   	
+    	<version>4.2.5.RELEASE</version>
     </dependency>                		         
   </dependencies>  
   
@@ -67,13 +69,11 @@
 	    <artifactId>maven-bundle-plugin</artifactId>
 	    <configuration>
 	      <instructions>
+	      	<Main-Class>net.yeeyaa.perception.search.calcite.schema.util.GZipUtils</Main-Class>
 	      	<Import-Package>net.yeeyaa.eight;version='[1.0,2.0)',
 		      				net.yeeyaa.eight.osgi.runtime;version='[1.0,2.0)',
 		      				net.yeeyaa.eight.osgi;version='[1.0,2.0)',
 		      				!org.osgi.service.blueprint,
-		      				com.mysql.jdbc;resolution:=optional,
-							org.postgresql;resolution:=optional,	
-							org.h2;resolution:=optional,
 		      				org.osgi.framework,
 		      				org.springframework.beans.factory.xml,
 							org.springframework.context.config,

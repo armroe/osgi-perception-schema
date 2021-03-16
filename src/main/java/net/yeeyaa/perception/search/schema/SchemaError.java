@@ -1,10 +1,11 @@
-package net.yeeyaa.perception.search.calcite.schema;
+package net.yeeyaa.perception.search.schema;
 
 import net.yeeyaa.eight.PlatformException.Type;
 
 
 public enum SchemaError implements Type {
 	ERROR_PARAMETERS,
+	SERIALIZE_ERROR,
 	CREATE_TIMEOUT,
 	SCHEMA_EXCEPTION;
 	

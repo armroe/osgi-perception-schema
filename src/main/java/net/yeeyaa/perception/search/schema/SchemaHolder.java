@@ -1,4 +1,4 @@
-package net.yeeyaa.perception.search.calcite.schema;
+package net.yeeyaa.perception.search.schema;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import net.yeeyaa.eight.IBiProcessor;
@@ -14,27 +15,29 @@ import net.yeeyaa.eight.IInputResource;
 import net.yeeyaa.eight.IProcessor;
 import net.yeeyaa.eight.ITriProcessor;
 import net.yeeyaa.eight.PlatformException;
+import net.yeeyaa.eight.core.util.ConcurrentWeakIdentityHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.MapMaker;
 
 
-public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<String, Object[], Object>, ITriProcessor<Object, String, Map<Object, Object>, ITriProcessor<Object, String, Object[], Object>> {
+public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<String, Object[], Object>, ITriProcessor<Object, String, Map<Object, Object>, ITriProcessor<Object, String, Object, Object>> {
 	public enum Operate{getCache, get, sync, process, operate}
     protected final UUID id = UUID.randomUUID();
     protected final Logger log;
     protected volatile Map<Object, Object> cache;
 	protected volatile CountDownLatch startSignal = new CountDownLatch(1);
 	protected volatile String flag;
+	protected ExecutorService executor;
     protected IInputResource<Object, Object>  meta;
-    protected IProcessor<String, ITriProcessor<Object, IBiProcessor<String, Object[], Object>, Map<Object, Object>, ITriProcessor<Object, String, Object[], Object>>> factory;
+    protected IProcessor<Object, Object> destroy;
+    protected IProcessor<String, ITriProcessor<Object, IBiProcessor<String, Object[], Object>, Map<Object, Object>, ITriProcessor<Object, String, Object, Object>>> factory;
     protected Integer size;//0:no limit
     protected Long timeout;//0:disable wait, >0: wait and throw exception when timeout; <0: wait with timeout; null: wait without timeout
-
+	
 	public SchemaHolder() {
 		this.log = LoggerFactory.getLogger(SchemaHolder.class);
 	}
@@ -43,17 +46,25 @@ public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<S
 		this.log = log == null ? LoggerFactory.getLogger(SchemaHolder.class) : log;
 	}
 
-	public void setFactory(IProcessor<String, ITriProcessor<Object, IBiProcessor<String, Object[], Object>, Map<Object, Object>, ITriProcessor<Object, String, Object[], Object>>> factory) {
+	public void setFactory(IProcessor<String, ITriProcessor<Object, IBiProcessor<String, Object[], Object>, Map<Object, Object>, ITriProcessor<Object, String, Object, Object>>> factory) {
 		this.factory = factory;
+	}
+
+	public void setDestroy(IProcessor<Object, Object> destroy) {
+		this.destroy = destroy;
 	}
 
 	public void setCache(Integer cache) {
 		if (cache != null && cache >= 0) {
 			size = cache;
-			this.cache = new MapMaker().weakKeys().makeMap();
+			this.cache = new ConcurrentWeakIdentityHashMap<Object, Object>(false);
 		}
 	}
-	
+
+	public void setExecutor(ExecutorService executor) {
+		this.executor = executor;
+	}
+
 	public void setTimeout(Long timeout) {
 		this.timeout = timeout;
 	}
@@ -76,8 +87,14 @@ public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<S
 			throw new PlatformException(SchemaError.CREATE_TIMEOUT, e);
 		} else if (flag[0].getName().equals(this.flag)) return true;
 		else synchronized(this) {
-			this.flag = flag[0].getName();
-			if (cache != null) cache = new MapMaker().weakKeys().makeMap();
+			this.flag = flag[0].getName();			
+			if (cache != null) cache = new ConcurrentWeakIdentityHashMap<Object, Object>(false);
+			if (destroy != null) if (executor == null) destroy.process(null);
+			else executor.execute(new Runnable(){
+				@Override
+				public void run() {
+					destroy.process(null);
+			}});
 			startSignal.countDown();
 			return false;
 		}
@@ -92,7 +109,7 @@ public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<S
 				if (c == null) synchronized (cache) {
 					c = cache.get(key);
 					if (c == null) {
-						c = new MapMaker().weakKeys().makeMap();
+						c = new ConcurrentWeakIdentityHashMap<Object, Object>(false);
 						cache.put(key, c);
 					}
 				}
@@ -118,8 +135,10 @@ public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<S
 			Iterator<Node[]> result = ((List<Node[]>) meta.find(newparas)).iterator();
 			int i = 0;
 			while (result.hasNext()) {
-				if (paras.length > i) ret.add(result.next());
-				else if (sync((Node[])result.next()) == null) return startSignal.getCount() == 0 ? get(paras) : null;
+				if (paras.length > i) {
+					Node[] e = result.next();
+					ret.add(e == null ? new Node[0] : e);
+				} else if (sync((Node[])result.next()) == null) return startSignal.getCount() == 0 ? get(paras) : null;
 				i++;
 			}
 		} else {
@@ -138,8 +157,9 @@ public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<S
 				while (result.hasNext()) {
 					if (paras.length > i)  {
 						Node[] r = result.next();
+						if (r == null) r = new Node[0];
+						c.put(paras[i], r);
 						ret.add(r);
-						if (r != null) c.put(paras[i], r);
 					} else if (sync((Node[])result.next()) == null) return startSignal.getCount() == 0 ? get(paras) : null;
 					i++;
 				}
@@ -158,7 +178,8 @@ public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<S
 			return null;
 		} else if (!flag[0].getName().equals(this.flag)) synchronized(this) {
 			this.flag = flag[0].getName();
-			if (cache != null) cache = new MapMaker().weakKeys().makeMap();
+			if (cache != null) cache = new ConcurrentWeakIdentityHashMap<Object, Object>(false);
+			if (destroy != null) destroy.process(null);
 			startSignal.countDown();
 			return false;
 		}
@@ -166,8 +187,8 @@ public class SchemaHolder implements IProcessor<Object, Boolean>, IBiProcessor<S
 	}
 	
 	@Override
-	public ITriProcessor<Object, String, Object[], Object> operate(Object name, String type, Map<Object, Object> params) {
-		ITriProcessor<Object, IBiProcessor<String, Object[], Object>, Map<Object, Object>, ITriProcessor<Object, String, Object[], Object>> handler = factory.process(type);
+	public ITriProcessor<Object, String, Object, Object> operate(Object name, String type, Map<Object, Object> params) {
+		ITriProcessor<Object, IBiProcessor<String, Object[], Object>, Map<Object, Object>, ITriProcessor<Object, String, Object, Object>> handler = factory.process(type);
 		return handler == null ? null : handler.operate(name, this, params);
 	}
 	

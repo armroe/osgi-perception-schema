@@ -1,4 +1,4 @@
-package net.yeeyaa.perception.search.calcite.schema.util;
+package net.yeeyaa.perception.search.schema.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -10,13 +10,15 @@ import java.util.zip.GZIPOutputStream;
 import net.yeeyaa.eight.IBiProcessor;
 import net.yeeyaa.eight.IProcessor;
 import net.yeeyaa.eight.PlatformException;
+import net.yeeyaa.eight.core.util.BASE64Decoder;
+import net.yeeyaa.eight.core.util.BASE64Encoder;
 import net.yeeyaa.eight.core.util.TypeConvertor;
-import net.yeeyaa.perception.search.calcite.schema.SchemaError;
-
-import org.apache.commons.codec.binary.Base64;
+import net.yeeyaa.perception.search.schema.SchemaError;
 
 
 public class GZipUtils implements IProcessor<Object, Object>, IBiProcessor<Object, Boolean, Object>{
+	protected static BASE64Encoder encoder = new BASE64Encoder(3, 0);
+	protected static BASE64Decoder decoder = new BASE64Decoder(3);	
 	protected boolean compress;
 	
     public void setCompress(boolean compress) {
@@ -24,7 +26,7 @@ public class GZipUtils implements IProcessor<Object, Object>, IBiProcessor<Objec
 	}
 
 	public static String compress(String src) throws IOException {
-        return Base64.encodeBase64String(compress(src.getBytes("UTF-8")));
+        return encoder.encode(compress(src.getBytes("UTF-8")));
     }
 
     public static byte[] compress(byte[] bytes) throws IOException {
@@ -46,7 +48,7 @@ public class GZipUtils implements IProcessor<Object, Object>, IBiProcessor<Objec
     }
 
     public static String decompress(String src) throws IOException {
-        return new String(decompress(Base64.decodeBase64(src)), "UTF-8");
+        return new String(decompress(decoder.decode(src)), "UTF-8");
     }
 
     public static byte[] decompress(byte[] compressedBytes) throws IOException {

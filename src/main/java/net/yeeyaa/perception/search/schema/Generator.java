@@ -1,4 +1,4 @@
-package net.yeeyaa.perception.search.calcite.schema;
+package net.yeeyaa.perception.search.schema;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
@@ -24,8 +24,8 @@ import net.yeeyaa.eight.IProcessor;
 import net.yeeyaa.eight.IResource;
 import net.yeeyaa.eight.ITransactionResource;
 import net.yeeyaa.eight.ITriProcessor;
-import net.yeeyaa.perception.search.calcite.schema.Node.Category;
-import net.yeeyaa.perception.search.calcite.schema.util.GZipUtils;
+import net.yeeyaa.perception.search.schema.Node.Category;
+import net.yeeyaa.perception.search.schema.util.GZipUtils;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
@@ -34,11 +34,11 @@ import org.slf4j.LoggerFactory;
 
 public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Object, String, String> {
     protected final Logger log;
-    protected IBiProcessor<String, Class<?>, Object> marshal;
+    protected final IBiProcessor<String, Class<?>, Object> marshal;
     protected IProcessor<Object, String> unmarshal;
 	protected IListableTransaction<String, Object, IResource<String, Object>, Object> meta;
-	protected ITransactionResource<String, String, IResource<String, String>, Object> flag;
-	protected IBiProcessor<String, Map<String, Object>, Object> info;
+	protected ITransactionResource<String, Object, IResource<String, Object>, Object> flag;
+	protected ITriProcessor<String, String, Map<String, Object>, Object> info;
     protected IProcessor<Object, Node[]> holder;
 	protected ITriProcessor<Boolean, String, Object, Object> convertor;
 	protected ExecutorService executor;
@@ -48,14 +48,6 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
     protected Node[] config;
     protected String digest;
     
-	public Generator() {
-		this.log = LoggerFactory.getLogger(Generator.class);
-	}
-
-	public Generator(Logger log) {
-		this.log = log == null ? LoggerFactory.getLogger(Generator.class) : log;
-	}
-	
 	public Generator(IBiProcessor<String, Class<?>, Object> marshal) {
 		this.log = LoggerFactory.getLogger(Generator.class);
 		this.marshal = marshal;
@@ -70,10 +62,6 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 		this.holder = holder;
 	}
 
-	public void setMarshal(IBiProcessor<String, Class<?>, Object> marshal) {
-		this.marshal = marshal;
-	}
-
 	public void setUnmarshal(IProcessor<Object, String> unmarshal) {
 		this.unmarshal = unmarshal;
 	}
@@ -86,11 +74,11 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 		this.meta = meta;
 	}
 
-	public void setFlag(ITransactionResource<String, String, IResource<String, String>, Object> flag) {
+	public void setFlag(ITransactionResource<String, Object, IResource<String, Object>, Object> flag) {
 		this.flag = flag;
 	}
 
-	public void setInfo(IBiProcessor<String, Map<String, Object>, Object> info) {
+	public void setInfo(ITriProcessor<String, String, Map<String, Object>, Object> info) {
 		this.info = info;
 	}
 	
@@ -232,8 +220,8 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 		if (content == null) if (type == null || type instanceof Boolean) if (executor == null) process((Boolean) type);
 		else executor.execute(new Runner((Boolean) type));
 		else {
-			String fg = flag == null ? Constants.Empty : flag.find(Constants.Flag);
-			if (fg != null && Long.parseLong(fg) < 0) try {
+			Object fg = flag == null ? Constants.Empty : flag.find(Constants.Flag);
+			if (fg != null && Long.parseLong(fg.toString()) < 0) try {
 				Map<String[], Object> all = meta.all();
 				Map<String, Object> config = new HashMap<String, Object>(all.size() * 2);
 				for (Entry<String[], Object> entry : all.entrySet()) config.put(entry.getKey()[0], entry.getValue());
@@ -268,14 +256,14 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 	@Override
     public Boolean process(Boolean mode) { //mode -> null: amend; false: refresh; true: amend with re-fetch (for ids source self alter)
 		final Boolean[] f = new Boolean[]{true};
-		final String status[] = new String[]{null, null};
-		if (flag != null) flag.execute(new IProcessor<IResource<String,String>, Object>() {
+		final Object status[] = new Object[]{null, null};
+		if (flag != null) flag.execute(new IProcessor<IResource<String,Object>, Object>() {
 			@Override
-			public Object process(IResource<String, String> resource) {
-				String fg = resource.find(Constants.Flag);
+			public Object process(IResource<String, Object> resource) {
+				Object fg = resource.find(Constants.Flag);
 				status[0] = resource.find(Constants.Alter);
 				status[1] = resource.find(Constants.Config);
-				Long flag = fg == null ? 0 : Long.parseLong(fg);
+				Long flag = fg == null ? 0 : Long.parseLong(fg.toString());
 				if (flag < 0 && (status[0] != null || status[1] != null)) flag = 0L;
 				Long now = System.currentTimeMillis();
 				if (flag == 0 || duration == null && flag < 0 || duration != null && Math.abs(flag) + duration < now) {
@@ -431,7 +419,8 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 							@Override
 							public Object process(IResource<String, Object> resource) {
 								resource.empty();
-								return resource.store(confs);
+								for (Entry<String, Node[]> entry : confs.entrySet()) resource.store(entry.getValue(), entry.getKey());
+								return null;
 							}
 					}); } else {
 		    			Node[] o = null;
@@ -484,7 +473,7 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 			        		}
 		    			}
 	    				HashSet<String> remove = new HashSet<String>();
-		    			if (status[0] != null) for (String s : status[0].split("\\*\\*")) remove.add(s);
+		    			if (status[0] != null) for (String s : status[0].toString().split("\\*\\*")) remove.add(s);
 		    			if (f[0]) {
 		    				if (oshare.size() > 0) {
 			    				Iterator<Entry<String, Set<String>>> di = oshare.entrySet().iterator();
@@ -536,7 +525,7 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 		        						if (temp != null && temp.get(Constants.Id) instanceof Collection) {
 		        							Iterator<Object> itr = ((Collection<Object>) temp.get(Constants.Id)).iterator();
 		        							while (itr.hasNext()) {
-		        								Object id = itr.next();
+		        								Object id = itr.next().toString();
 		            							String key = Category.DATASET.value() + "*" + d.getKey() + "*" + id;
 		            							if (alt || remove.contains(id) || remove.contains(id + "*" + d.getKey()) || remove.contains(id + "*" + d.getKey() + "*" + v.getKey())) {
 		    	        							Set<String> tabs = alter.get(key);
@@ -561,7 +550,7 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 		    					if (temp != null && temp.get(Constants.Id) instanceof Collection) {
 		    						Iterator<Object> itr = ((Collection<Object>) temp.get(Constants.Id)).iterator();
 	    							while (itr.hasNext()) {
-	    								Object id = itr.next();
+	    								Object id = itr.next().toString();
 	        							String key = Category.DATASET.value() + "*" + d.getKey() + "*" + id;
 	        							if (remove.contains(id) || remove.contains(id + "*" + d.getKey()) || remove.contains(id + "*" + d.getKey() + "*" + v.getKey())) {
 		        							Set<String> tabs = alter.get(key);
@@ -670,8 +659,6 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 					    					v.getValue().setTemp(temp);
 					    				}
 					    				temp.put(Constants.Id, idone);
-				    			    	Map<String, Object> map = new HashMap<String, Object>();
-					    				Integer count = 0;
 				    					HashSet<Object> ids = new HashSet<Object>();
 					    				if (permit == null) {
 					    					if (convertor == null) {
@@ -681,7 +668,6 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 					    						for (Object id : (Collection<Object>) v.getValue().getConfig().get(Constants.Forbid)) ids.add(convertor.operate(true, key, id));
 					    						for (Object id : idone) ids.add(convertor.operate(true, key, id));
 					    					}
-					    			    	map.put(Constants.Count, count);
 					    				} else {
 					    					if (convertor == null) {
 						    					ids.addAll(permit);
@@ -690,75 +676,70 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 					    						for (Object id : permit) ids.add(convertor.operate(true, key, id));
 					    						for (Object id : idone) ids.remove(convertor.operate(true, key, id));
 					    					}
-					    			    	if (ids.size() > 0) map.put(Constants.Count, count);
 					    				}
+				    			    	Map<String, Object> map = new HashMap<String, Object>();
 				    			    	map.put(Constants.Id, ids);
-					    				List<Map<String, Object>> result;
-					    				do {
-					    					result = permit == null ? (List<Map<String, Object>>) info.perform(key + "*" + Constants.Forbid, map) : map.get(Constants.Count) == null ? Collections.EMPTY_LIST : (List<Map<String, Object>>) info.perform(key + "*" + Constants.Permit, map);
-						    				if (result.size() > 0) {
-						    					count += result.size();
-						    					map.put(Constants.Count, count);
-						    					Map<Object, Set<Map<String, Object>>> tabs = new HashMap<Object, Set<Map<String, Object>>>();
-						    					for (Map<String, Object> paras : result) {
-						    						Object id = paras.remove(Constants.Id);
-						    						if (id != null) {
-						    							if (convertor != null) id = convertor.operate(false, key, id);
-						    							Set<Map<String, Object>> tab = tabs.get(id);
-						    							if (tab == null) {
-						    								tab = new HashSet<Map<String, Object>>();
-						    								tabs.put(id, tab);
-						    							}
-						    							tab.add(paras);
-						    						}
-						    					}
-						    					if (tabs.size() > 0) for (Entry<Object, Set<Map<String, Object>>> entry : tabs.entrySet()) {
-						    						HashMap<String, Node> cols = (HashMap<String, Node>)sub.clone();
-						    						for (Map<String, Object> col : entry.getValue()) {
-						    							Object name = col.remove(Constants.Name);
-						    							if (name != null) {
-						    								Node n = cols.get(name);
-						    								if (n == null) {
-						    									n = new Node(name.toString(), Category.ITEM, col, null, null);
-		    													Node o = ps.get(col.get(Constants.Ref) == null ? n.getName() : col.get(Constants.Ref));
-		    													if (o != null) {
-		    					    								if (o.getConfig() != null) {
-		    					    									Object ov = col == null ? null : col.get(Constants.Override);
-		    					    									if (ov == null) {
-		    						    									HashMap<String, Object> nc = new HashMap<String, Object>(o.getConfig());
-		    						    									nc.putAll(col);
-		    						    									n.setConfig(nc);
-		    					    									} else if (!(ov instanceof Boolean)) {
-		    					    										HashMap<String, Object> nc = new HashMap<String, Object>(col);
-		    						    									nc.putAll(o.getConfig());
-		    						    									n.setConfig(nc);
-		    					    									} else if (Boolean.FALSE.equals(ov)) if (col.get(Constants.Ref) == null) n.setConfig(o.getConfig());
-		    					    									else {
-		    					    										HashMap<String, Object> nc = new HashMap<String, Object>(o.getConfig());
-		    					    										nc.put(Constants.Ref, col.get(Constants.Ref));
-		    					    										n.setConfig(nc);
-		    					    									}
-		    					    								}
-		    					    								if (o.getSub() != null && o.getSub().length > 0) n.setSub(o.getSub());
-		    					    								cols.put(name.toString(), n);
-		    													} else if (direct != null) cols.put(n.getName(), n);
-						    								} else {
-						    									n = (Node) n.clone();
-						    									Map<String, Object> c = n.getConfig() == null ? col : new HashMap<String, Object>(n.getConfig());
-						    									if (c != col) c.putAll(col);
-						    									n.setConfig(c);
-						    								}
-						    							}
-						    						}
-						    						if (cols.size() > 0) {
-							    						Node vw = (Node) view.clone();
-							    						vw.setSub(cols.values().toArray(new Node[cols.size()]));
-							    						cache.find(Category.DATASET.value() + "*" + d.getKey() + "*" + entry.getKey()).put(v.getKey(), vw);
-							    						idone.add(entry.getKey());
-						    						}
-						    					}
-						    				}
-					    				} while (result.size() > 0);
+					    				List<Map<String, Object>> result = permit == null ? (List<Map<String, Object>>) info.operate(key, Constants.Forbid, map) : ids.size() == 0 ? Collections.EMPTY_LIST : (List<Map<String, Object>>) info.operate(key, Constants.Permit, map);
+					    				if (result != null && result.size() > 0) {
+					    					Map<Object, Set<Map<String, Object>>> tabs = new HashMap<Object, Set<Map<String, Object>>>();
+					    					for (Map<String, Object> paras : result) {
+					    						Object id = paras.remove(Constants.Id);
+					    						if (id != null) {
+					    							if (convertor != null) id = convertor.operate(false, key, id);
+					    							Set<Map<String, Object>> tab = tabs.get(id);
+					    							if (tab == null) {
+					    								tab = new HashSet<Map<String, Object>>();
+					    								tabs.put(id, tab);
+					    							}
+					    							tab.add(paras);
+					    						}
+					    					}
+					    					if (tabs.size() > 0) for (Entry<Object, Set<Map<String, Object>>> entry : tabs.entrySet()) {
+					    						HashMap<String, Node> cols = (HashMap<String, Node>)sub.clone();
+					    						for (Map<String, Object> col : entry.getValue()) {
+					    							Object name = col.remove(Constants.Name);
+					    							if (name != null) {
+					    								Node n = cols.get(name);
+					    								if (n == null) {
+					    									n = new Node(name.toString(), Category.ITEM, col, null, null);
+	    													Node o = ps.get(col.get(Constants.Ref) == null ? n.getName() : col.get(Constants.Ref));
+	    													if (o != null) {
+	    					    								if (o.getConfig() != null) {
+	    					    									Object ov = col == null ? null : col.get(Constants.Override);
+	    					    									if (ov == null) {
+	    						    									HashMap<String, Object> nc = new HashMap<String, Object>(o.getConfig());
+	    						    									nc.putAll(col);
+	    						    									n.setConfig(nc);
+	    					    									} else if (!(ov instanceof Boolean)) {
+	    					    										HashMap<String, Object> nc = new HashMap<String, Object>(col);
+	    						    									nc.putAll(o.getConfig());
+	    						    									n.setConfig(nc);
+	    					    									} else if (Boolean.FALSE.equals(ov)) if (col.get(Constants.Ref) == null) n.setConfig(o.getConfig());
+	    					    									else {
+	    					    										HashMap<String, Object> nc = new HashMap<String, Object>(o.getConfig());
+	    					    										nc.put(Constants.Ref, col.get(Constants.Ref));
+	    					    										n.setConfig(nc);
+	    					    									}
+	    					    								}
+	    					    								if (o.getSub() != null && o.getSub().length > 0) n.setSub(o.getSub());
+	    					    								cols.put(name.toString(), n);
+	    													} else if (direct != null) cols.put(n.getName(), n);
+					    								} else {
+					    									n = (Node) n.clone();
+					    									Map<String, Object> c = n.getConfig() == null ? col : new HashMap<String, Object>(n.getConfig());
+					    									if (c != col) c.putAll(col);
+					    									n.setConfig(c);
+					    								}
+					    							}
+					    						}
+					    						if (cols.size() > 0) {
+						    						Node vw = (Node) view.clone();
+						    						vw.setSub(cols.values().toArray(new Node[cols.size()]));
+						    						cache.find(Category.DATASET.value() + "*" + d.getKey() + "*" + entry.getKey()).put(v.getKey(), vw);
+						    						idone.add(entry.getKey());
+					    						}
+					    					}
+					    				}
 		    		    			}
 								}
 		    				};
@@ -771,7 +752,7 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 		    				f[0] = true;
 		    				for (Entry<String, Map<String, Node>> entry : reserve.entrySet()) {
 								Collection<Node> ns = entry.getValue().values();
-								confs.put(Category.DATASET.value() + "*" + entry.getKey(), ns.toArray(new Node[ns.size()]));
+								confs.put(entry.getKey(), ns.toArray(new Node[ns.size()]));
 			    			}
 		    			}
 		    			for (String rm : other) alter.put(rm, null);
@@ -782,7 +763,8 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 							@Override
 							public Object process(IResource<String, Object> resource) {
 								if (alter.size() > 0) resource.discard(alter.keySet().toArray(new String[alter.size()]));
-								return f[0] ? resource.store(confs) : null;
+								if (f[0]) for (Entry<String, Node[]> entry : confs.entrySet()) resource.store(entry.getValue(), entry.getKey());
+								return null;
 							}
 		    			});}
 		    			for (Map<String, Node> d : individual.values()) for (Node v : d.values()) {
@@ -792,12 +774,13 @@ public class Generator implements IProcessor<Boolean, Boolean>, IBiProcessor<Obj
 		    		}
 		    	} 
 			} else {
-	    		final Map<String, Node[]> confs = (Map<String, Node[]>) marshal.perform(status[1].startsWith("{") ? status[1] : GZipUtils.decompress(status[1]), Map.class);
+	    		final Map<String, Node[]> confs = (Map<String, Node[]>) marshal.perform(status[1].toString().startsWith("{") ? status[1].toString() : GZipUtils.decompress(status[1].toString()), null);
 	    		meta.execute(new IProcessor<IResource<String,Object>, Object>() {
 					@Override
 					public Object process(IResource<String, Object> resource) {
 						resource.empty();
-						return resource.store(confs);
+						for (Entry<String, Node[]> entry : confs.entrySet()) resource.store(entry.getValue(), entry.getKey());
+						return null;
 					}
 	    		});
 	    	}

@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<beans xmlns="http://www.springframework.org/schema/beans" 
+	xmlns:context="http://www.springframework.org/schema/context" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xsi:schemaLocation="http://www.springframework.org/schema/beans                     
+		http://www.springframework.org/schema/beans/spring-beans.xsd                      
+		http://www.springframework.org/schema/context                      
+		http://www.springframework.org/schema/context/spring-context.xsd ">
+	<context:property-placeholder properties-ref="properties"/>
+	<context:annotation-config/>
+	<context:mbean-export/>
+	<!--<constructor-arg value="#{${framework.perception.search.log:null}}"/> -->
+	
+	<bean class="net.yeeyaa.perception.search.schema.SchemaHolder" id="schema">
+		<constructor-arg ref="log"/>
+		<property name="cache" value="${framework.perception.schema.cache:#{null}}"/>
+		<property name="timeout" value="${framework.perception.schema.timeout:#{null}}"/>		
+		<property name="executor" ref="pool"/>
+		<property name="destroy" value="#{${framework.perception.schema.destroy.key:null}}"/>	
+		<property name="meta" ref="metaService"/>	
+		<property name="factory">
+			<bean class="net.yeeyaa.eight.core.processor.UniversalProxy">
+				<property name="invoker">
+					<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+						<property name="invoker" ref="invoker"/>
+						<property name="name" value="${framework.perception.schema.factory:factory}"/>
+					</bean> 		
+				</property>
+			</bean> 
+		</property>
+	</bean>
+
+	<bean class="net.yeeyaa.perception.search.schema.Generator" id="generator">
+		<constructor-arg ref="log"/>
+		<constructor-arg>
+			<bean class="net.yeeyaa.eight.core.processor.UniversalProxy">
+				<property name="invoker">
+					<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+						<property name="invoker" ref="invoker"/>
+						<property name="name" value="${framework.perception.schema.marshal:marshal}"/>
+					</bean> 		
+				</property>
+			</bean> 
+		</constructor-arg>
+		<property name="executor" ref="pool"/>	
+		<property name="holder" value="#{${framework.perception.schema.generator.holder.key:null}}"/>	
+		<property name="convertor" value="#{${framework.perception.schema.generator.convertor.key:null}}"/>	
+		<property name="config" value="${framework.perception.schema.generator.config:#{null}}"/>
+		<property name="duration" value="${framework.perception.schema.generator.duration:#{null}}"/>
+		<property name="bucketSize" value="${framework.perception.schema.generator.bucketSize:1000}"/>
+		<property name="listSize" value="${framework.perception.schema.generator.listSize:5}"/>				
+		<property name="meta" ref="metaService"/>
+		<property name="flag">
+			<bean class="net.yeeyaa.eight.core.processor.UniversalProxy">
+				<property name="invoker">
+					<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+						<property name="invoker" ref="invoker"/>
+						<property name="name" value="${framework.perception.schema.flag:flag}"/>
+					</bean> 		
+				</property>
+			</bean> 
+		</property>
+		<property name="info">
+			<bean class="net.yeeyaa.eight.core.processor.UniversalProxy">
+				<property name="invoker">
+					<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+						<property name="invoker" ref="invoker"/>
+						<property name="name" value="${framework.perception.schema.info:info}"/>
+					</bean> 		
+				</property>
+			</bean> 
+		</property>
+		<property name="unmarshal">
+			<bean class="net.yeeyaa.eight.core.processor.UniversalProxy">
+				<property name="invoker">
+					<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+						<property name="invoker" ref="invoker"/>
+						<property name="name" value="${framework.perception.schema.unmarshal:unmarshal}"/>
+					</bean> 		
+				</property>
+			</bean> 
+		</property>		
+	</bean>	
+	
+	<bean class="net.yeeyaa.eight.core.processor.UniversalProxy" id="metaService">
+		<property name="invoker">
+			<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+				<property name="invoker" ref="invoker"/>
+				<property name="name" value="${framework.perception.schema.meta:meta}"/>
+			</bean> 		
+		</property>
+	</bean> 
+
+	<bean class="net.yeeyaa.eight.core.processor.UniversalProxy" id="convertor">
+		<property name="invoker">
+			<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+				<property name="invoker" ref="invoker"/>
+				<property name="name" value="${framework.perception.schema.convertor:convertor}"/>
+			</bean> 		
+		</property>
+	</bean> 
+
+	<bean class="net.yeeyaa.eight.core.processor.UniversalProxy" id="holder">
+		<property name="invoker">
+			<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+				<property name="invoker" ref="invoker"/>
+				<property name="name" value="${framework.perception.schema.holder:holder}"/>
+			</bean> 		
+		</property>
+	</bean> 
+	
+	<bean class="net.yeeyaa.eight.core.processor.UniversalProxy" id="destroy">
+		<property name="invoker">
+			<bean class="net.yeeyaa.eight.osgi.runtime.ProxyBean$$Proxy">
+				<property name="invoker" ref="invoker"/>
+				<property name="name" value="${framework.perception.schema.destroy:destroy}"/>
+			</bean> 		
+		</property>
+	</bean> 
+	
+	<bean class="net.yeeyaa.eight.core.task.PlatformTask" id="task" init-method="reload">
+		<constructor-arg ref="log"/>
+        <property name="beanHolder" ref="taskCallback"/>
+		<property name="tasks">
+			<list>
+				<bean class="net.yeeyaa.eight.core.task.TaskEntity">
+					<property name="name" value="schema"/>
+					<property name="bean" ref="schema"/>
+					<property name="ignore" value="true"/>
+					<property name="type" value="1"/>
+					<property name="begin" value="0"/>
+					<property name="span">
+						<bean class="net.yeeyaa.eight.core.util.Interval">
+							<constructor-arg value="${framework.perception.schema.task.span:0 min}"/>
+						</bean>
+					</property>
+				</bean>		
+				<bean class="net.yeeyaa.eight.core.task.TaskEntity">
+					<property name="name" value="init-schema"/>
+					<property name="bean" ref="schema"/>
+					<property name="ignore" value="true"/>
+					<property name="type" value="1"/>
+					<property name="begin" value="0"/>
+					<property name="span">
+						<bean class="net.yeeyaa.eight.core.util.Interval">
+							<constructor-arg value="${framework.perception.schema.init.span:-1 min}"/>
+						</bean>
+					</property>
+				</bean>						
+				<bean class="net.yeeyaa.eight.core.task.TaskEntity">
+					<property name="name" value="generator"/>
+					<property name="bean" ref="generator"/>
+					<property name="ignore" value="true"/>
+					<property name="type" value="1"/>
+					<property name="begin" value="0"/>
+					<property name="parameter" value="#{'${framework.perception.schema.generator.parameter:}'.length() == 0 ? null : ${framework.perception.schema.generator.parameter:null}}"/>
+					<property name="span">
+						<bean class="net.yeeyaa.eight.core.util.Interval">
+							<constructor-arg value="${framework.perception.generator.task.span:0 min}"/>
+						</bean>
+					</property>
+				</bean>	
+				<bean class="net.yeeyaa.eight.core.task.TaskEntity">
+					<property name="name" value="init-generator"/>
+					<property name="bean" ref="generator"/>
+					<property name="ignore" value="true"/>
+					<property name="type" value="1"/>
+					<property name="begin" value="0"/>
+					<property name="parameter" value="#{'${framework.perception.schema.generator.parameter:}'.length() == 0 ? null : ${framework.perception.schema.generator.parameter:null}}"/>
+					<property name="span">
+						<bean class="net.yeeyaa.eight.core.util.Interval">
+							<constructor-arg value="${framework.perception.generator.init.span:-1 min}"/>
+						</bean>
+					</property>
+				</bean>											
+			</list>
+		</property>
+	</bean>
+	
+	<bean id="pool" class="net.yeeyaa.eight.core.PlatformPool">
+		<constructor-arg ref="log"/>
+    	<property name="size" value="${framework.perception.schema.pool:8}" /> 		
+	</bean>
+</beans>

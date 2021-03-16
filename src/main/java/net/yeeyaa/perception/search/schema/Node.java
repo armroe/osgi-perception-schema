@@ -1,4 +1,4 @@
-package net.yeeyaa.perception.search.calcite.schema;
+package net.yeeyaa.perception.search.schema;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
